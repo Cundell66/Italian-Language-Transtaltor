@@ -1,0 +1,37 @@
+import os
+from dotenv import load_dotenv
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_groq import ChatGroq
+from tts import tts
+from flask import render_template, Flask, redirect, request
+import jinja_partials
+import uuid
+
+load_dotenv()
+API_KEY = os.getenv("GROQ_API_KEY")
+
+chat = ChatGroq(temperature=0, groq_api_key=API_KEY, model_name="llama3-70b-8192")
+
+app = Flask(__name__)
+jinja_partials.register_extensions(app)
+
+system = "You are the worlds best anglo-italian translation assistant. You translate every statement from engliah to italian without additional conversation."
+human = "{text}"
+prompt = ChatPromptTemplate.from_messages([("system", system), ("human", human)])
+response = ""
+sound_file = ""
+unique_id = ""
+
+
+@app.route("/", methods=["GET"])
+def home():
+    return render_template("index.html")
+
+@app.route("/", methods=["POST"])
+def translate():
+    text = request.form.get("phrase")
+    chain = prompt | chat
+    response = chain.invoke({"text": text}).content
+    sound_file=tts(response)
+    unique_id = str(uuid.uuid4())
+    return render_template("index.html", response=response, sound_file = sound_file, unique_id = unique_id)
